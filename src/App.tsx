@@ -390,7 +390,7 @@ export function App() {
           }}
           className="font-graffiti text-2xl tracking-wide text-[#ffd600] whitespace-nowrap shrink-0"
         >
-          SafeWatch X5
+          safeWatch
         </a>
 
         {/* Zone 2: 4 concise single-line navigation links */}
@@ -1080,7 +1080,7 @@ export function App() {
         <div className="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-4 text-xs font-mono text-[#a0a6b8]">
           <div>
             <span className="font-graffiti text-base text-[#ffd600] mr-2">
-              SafeWatch X5
+              safeWatch
             </span>
             <span>
               NYC FIVE BOROUGHS SURVEILLANCE DECK · X5 MINI (FCC 2BCLC-A9) &amp; ALFREDCAM BURNER NODES

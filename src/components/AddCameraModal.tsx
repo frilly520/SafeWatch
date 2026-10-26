@@ -391,7 +391,7 @@ export const AddCameraModal: React.FC<AddCameraModalProps> = ({
                       Option B: Turn an Old Cracked Phone Into a Street Cam (AlfredCam Style)
                     </h3>
                     <p className="text-xs text-[#a0a6b8] mt-1">
-                      Open SafeWatch on any spare phone and hit{' '}
+                      Open safeWatch on any spare phone and hit{' '}
                       <strong className="text-[#f4f1ea]">
                         Burner Phone Cam Mode
                       </strong>
