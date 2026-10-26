@@ -1,0 +1,267 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg-asphalt: #0a0a0d;
+    --bg-charcoal: #12141a;
+    --bg-concrete: #1b1e27;
+    --bg-concrete-light: #252936;
+    --ink-offwhite: #f4f1ea;
+    --ink-muted: #a0a6b8;
+    --spray-yellow: #ffd600;
+    --spray-red: #ff2a3b;
+    --spray-blue: #00d2ff;
+    --spray-purple: #9d4edd;
+    --border-heavy: #2e3344;
+
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--bg-asphalt);
+    color: var(--ink-offwhite);
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  code, pre, .font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Typography Utilities */
+.font-graffiti {
+  font-family: 'Sedgwick Ave Display', 'Permanent Marker', cursive;
+  letter-spacing: 0.03em;
+  text-shadow: 2px 2px 0px #000000, -1px -1px 0px rgba(0, 0, 0, 0.8);
+}
+
+.font-marker {
+  font-family: 'Permanent Marker', cursive;
+  letter-spacing: 0.02em;
+}
+
+.font-stencil {
+  font-family: 'Chakra Petch', 'Plus Jakarta Sans', sans-serif;
+  letter-spacing: 0.05em;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Gritty 1990s NYC Concrete & Subway Tile Canvas */
+.nyc-wall-bg {
+  background-color: #0a0a0d;
+  background-image:
+    radial-gradient(circle at 12% 8%, rgba(255, 214, 0, 0.055) 0%, transparent 32%),
+    radial-gradient(circle at 88% 15%, rgba(0, 210, 255, 0.05) 0%, transparent 30%),
+    radial-gradient(circle at 80% 85%, rgba(157, 78, 221, 0.05) 0%, transparent 35%),
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 36px 36px, 36px 36px;
+}
+
+/* Subtle Distressed Concrete Texture Overlay */
+.concrete-surface {
+  background-color: #13151c;
+  background-image:
+    radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 0),
+    radial-gradient(rgba(0, 0, 0, 0.35) 1px, transparent 0);
+  background-size: 24px 24px;
+  background-position: 0 0, 12px 12px;
+}
+
+/* Street-Art Brutalist Panels with Thick Outlines & Hard Shadows */
+.nyc-panel {
+  background-color: #13151c;
+  border: 2px solid #2e3344;
+  border-radius: 2px;
+  box-shadow: 5px 5px 0px #040406;
+}
+
+.nyc-panel-yellow {
+  background-color: #13151c;
+  border: 2px solid #ffd600;
+  border-radius: 2px;
+  box-shadow: 4px 4px 0px rgba(255, 214, 0, 0.28);
+}
+
+.nyc-panel-blue {
+  background-color: #13151c;
+  border: 2px solid #00d2ff;
+  border-radius: 2px;
+  box-shadow: 4px 4px 0px rgba(0, 210, 255, 0.25);
+}
+
+.nyc-panel-red {
+  background-color: #161115;
+  border: 2px solid #ff2a3b;
+  border-radius: 2px;
+  box-shadow: 4px 4px 0px rgba(255, 42, 59, 0.3);
+}
+
+.nyc-panel-purple {
+  background-color: #15121d;
+  border: 2px solid #9d4edd;
+  border-radius: 2px;
+  box-shadow: 4px 4px 0px rgba(157, 78, 221, 0.3);
+}
+
+/* Tactile Street-Art Buttons */
+.nyc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border-radius: 2px;
+  border: 2px solid #383e52;
+  font-family: 'Chakra Petch', 'Plus Jakarta Sans', sans-serif;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  box-shadow: 3px 3px 0px #040406;
+  transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1), background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  cursor: pointer;
+}
+
+.nyc-btn:hover:not(:disabled) {
+  transform: translate(-1px, -1px);
+}
+
+.nyc-btn:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0px #040406;
+}
+
+.nyc-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.nyc-btn-yellow {
+  background-color: #ffd600;
+  border-color: #f4f1ea;
+  color: #0a0a0d;
+}
+.nyc-btn-yellow:hover:not(:disabled) {
+  background-color: #ffe140;
+}
+
+.nyc-btn-red {
+  background-color: #ff2a3b;
+  border-color: #f4f1ea;
+  color: #ffffff;
+}
+.nyc-btn-red:hover:not(:disabled) {
+  background-color: #ff4756;
+}
+
+.nyc-btn-blue {
+  background-color: #00d2ff;
+  border-color: #f4f1ea;
+  color: #0a0a0d;
+}
+.nyc-btn-blue:hover:not(:disabled) {
+  background-color: #33dbff;
+}
+
+.nyc-btn-purple {
+  background-color: #9d4edd;
+  border-color: #f4f1ea;
+  color: #ffffff;
+}
+.nyc-btn-purple:hover:not(:disabled) {
+  background-color: #b16be8;
+}
+
+.nyc-btn-dark {
+  background-color: #1c202b;
+  border-color: #383e52;
+  color: #f4f1ea;
+}
+.nyc-btn-dark:hover:not(:disabled) {
+  background-color: #262b3a;
+  border-color: #ffd600;
+}
+
+/* Authentic 1990s NYC Subway Route Bullet */
+.mta-bullet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800;
+  font-size: 12px;
+  line-height: 1;
+  flex-shrink: 0;
+  border: 1.5px solid #0a0a0d;
+}
+
+/* Subway / Urban Caution Hazard Stripe */
+.hazard-stripe-yellow {
+  background: repeating-linear-gradient(
+    -45deg,
+    #ffd600,
+    #ffd600 10px,
+    #0a0a0d 10px,
+    #0a0a0d 20px
+  );
+}
+
+.hazard-stripe-red {
+  background: repeating-linear-gradient(
+    -45deg,
+    #ff2a3b,
+    #ff2a3b 10px,
+    #0a0a0d 10px,
+    #0a0a0d 20px
+  );
+}
+
+/* 90s Hip-Hop Mixtape / Cassette J-Card Strip */
+.mixtape-strip {
+  background-color: #f4f1ea;
+  color: #0a0a0d;
+  border: 2px solid #0a0a0d;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 22px,
+    rgba(10, 10, 13, 0.12) 22px,
+    rgba(10, 10, 13, 0.12) 23px
+  );
+}
+
+/* Custom Inputs & Selects */
+.nyc-input {
+  background-color: #0a0a0d;
+  border: 2px solid #32384a;
+  border-radius: 2px;
+  color: #f4f1ea;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.nyc-input:focus {
+  outline: none;
+  border-color: #ffd600;
+  box-shadow: 2px 2px 0px #ffd600;
+}
+
+/* Range Slider */
+input[type="range"].nyc-slider {
+  accent-color: #ffd600;
+  height: 6px;
+  background: #0a0a0d;
+  border: 1px solid #32384a;
+  cursor: pointer;
+}

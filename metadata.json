@@ -1,0 +1,6 @@
+{
+  "name": "SafeWatch X5 — AI Security Camera & Multi-Cam VMS",
+  "description": "Free IP camera viewer, old-phone camera node (AlfredCam style), and native X5 Mini Camera (2BCLC-A9) automated H.264 gateway with Gemini Watchman threat analysis and automatic cloud privacy cleanup.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
