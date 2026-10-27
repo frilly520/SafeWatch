@@ -28,6 +28,7 @@ import { CameraTile } from './components/CameraTile';
 import { AddCameraModal } from './components/AddCameraModal';
 import { OldPhoneTransmitterView } from './components/OldPhoneTransmitterView';
 import { X5WatchmanGatewayView } from './components/X5WatchmanGatewayView';
+import { PWAInstallPrompt } from './components/PWAInstallPrompt';
 
 type ActiveSection = 'matrix' | 'phone' | 'x5_gateway' | 'incidents';
 
@@ -541,12 +542,14 @@ export function App() {
                     <span className="text-[#ff2a3b]">ZERO-CLOUD RETENTION</span>
                   </div>
                   <h1 className="font-graffiti text-2xl sm:text-4xl text-[#f4f1ea] tracking-wide">
-                    Don&apos;t Blink. Watch The Whole Block.
+                    Don&apos;t Blink, Don&apos;t sleep
                   </h1>
                 </div>
 
-                {/* Unboxed Concrete Metric Readout */}
-                <div className="flex flex-wrap items-center gap-4 text-xs font-mono tabular-nums bg-[#0a0a0d] border-2 border-[#2e3344] px-4 py-2.5">
+                {/* Unboxed Concrete Metric Readout + In-App PWA Install Shortcut */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <PWAInstallPrompt />
+                  <div className="flex flex-wrap items-center gap-4 text-xs font-mono tabular-nums bg-[#0a0a0d] border-2 border-[#2e3344] px-4 py-2.5">
                   <div>
                     <span className="text-[#a0a6b8]">ACTIVE CAMS:</span>{' '}
                     <span className="text-[#ffd600] font-bold">
@@ -571,6 +574,7 @@ export function App() {
                     <span className="text-[#ff2a3b] font-bold">
                       {wipedCount}
                     </span>
+                  </div>
                   </div>
                 </div>
               </div>

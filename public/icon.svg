@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" fill="#0a0a0d" />
+  <rect x="24" y="24" width="464" height="464" fill="none" stroke="#ffd600" stroke-width="16" />
+  <!-- Graffiti Crown Emblem -->
+  <path d="M136 168 L176 108 L256 156 L336 108 L376 168 Z" fill="#ffd600" />
+  <!-- Camera Body -->
+  <rect x="112" y="196" width="288" height="196" rx="8" fill="#13151c" stroke="#f4f1ea" stroke-width="14" />
+  <!-- Camera Lens Outer -->
+  <circle cx="256" cy="294" r="64" fill="#0a0a0d" stroke="#00d2ff" stroke-width="14" />
+  <!-- Camera Lens Inner -->
+  <circle cx="256" cy="294" r="24" fill="#ff2a3b" />
+  <!-- REC Indicator -->
+  <circle cx="352" cy="236" r="12" fill="#ff2a3b" />
+</svg>

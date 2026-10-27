@@ -15,6 +15,8 @@ import {
   VolumeX,
   Download,
   Loader2,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import {
   type LocalClip,
@@ -23,6 +25,7 @@ import {
   removeLocalClip,
 } from '../lib/localClipDb';
 import type { WatchmanIncident } from '../types/camera';
+import { PWAInstallPrompt } from './PWAInstallPrompt';
 
 interface OldPhoneTransmitterViewProps {
   wsRef: React.MutableRefObject<WebSocket | null>;
@@ -48,6 +51,9 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
   const [nightMode, setNightMode] = useState(false);
   const [muted, setMuted] = useState(true);
   const [dimScreen, setDimScreen] = useState(false);
+  const [fullViewportHud, setFullViewportHud] = useState(false);
+  const [lastPhotoDataUrl, setLastPhotoDataUrl] = useState<string | null>(null);
+  const [shutterFlash, setShutterFlash] = useState(false);
   const [sensitivity, setSensitivity] = useState(62);
   const [motionEnabled, setMotionEnabled] = useState(true);
   const [autoAiWatchman, setAutoAiWatchman] = useState(true);
@@ -59,7 +65,7 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
   const [analyzingAi, setAnalyzingAi] = useState(false);
   const [motionScore, setMotionScore] = useState(0);
   const [statusMessage, setStatusMessage] = useState(
-    'STANDBY // Hit Dispatch Sentry to start streaming & pixel motion watch.'
+    'STANDBY // Hit Dispatch Sentry to start streaming, snapping photos & motion watch.'
   );
   const [error, setError] = useState('');
   const [localClips, setLocalClips] = useState<LocalClip[]>([]);
@@ -67,6 +73,7 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const sampleCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const photoCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const lastPixelsRef = useRef<Uint8ClampedArray | null>(null);
   const recordingRef = useRef(false);
@@ -152,6 +159,49 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
     },
     []
   );
+
+  // Snap high-resolution photo onto hidden HTML5 canvas & update gallery thumbnail circle
+  const handleSnapPhoto = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = photoCanvasRef.current;
+    if (!video || !canvas || !running) return;
+
+    const width = video.videoWidth || 1280;
+    const height = video.videoHeight || 720;
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    if (cameraFacing === 'user') {
+      ctx.save();
+      ctx.translate(width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, width, height);
+      ctx.restore();
+    } else {
+      ctx.drawImage(video, 0, 0, width, height);
+    }
+
+    const dataUrl = canvas.toDataURL('image/png');
+    setLastPhotoDataUrl(dataUrl);
+    setShutterFlash(true);
+    window.setTimeout(() => setShutterFlash(false), 160);
+    setStatusMessage(
+      'SNAPSHOT CAPTURED // Tap the gallery thumbnail circle to download PNG.'
+    );
+  }, [cameraFacing, running]);
+
+  const handleDownloadLastPhoto = useCallback(() => {
+    if (!lastPhotoDataUrl) return;
+    const link = document.createElement('a');
+    link.href = lastPhotoDataUrl;
+    link.download = `safewatch-snap-${Date.now()}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }, [lastPhotoDataUrl]);
 
   // Record clip & upload to 15s H.264 AI Watchman Gateway
   const triggerMotionRecording = useCallback(
@@ -276,7 +326,7 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
     ]
   );
 
-  // Start or stop camera stream
+  // Start or restart camera stream safely (stopping previous tracks first so mobile devices never crash)
   const startPhoneCamera = useCallback(
     async (facing = cameraFacing) => {
       setStarting(true);
@@ -284,14 +334,19 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
       try {
         if (streamRef.current) {
           streamRef.current.getTracks().forEach((t) => t.stop());
+          streamRef.current = null;
         }
+        if (videoRef.current) {
+          videoRef.current.srcObject = null;
+        }
+
         const media = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: facing },
             width: { ideal: 1280 },
             height: { ideal: 720 },
           },
-          audio: true,
+          audio: false,
         });
         streamRef.current = media;
         if (videoRef.current) {
@@ -338,9 +393,13 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
     setRunning(false);
     setRecording(false);
     setDimScreen(false);
+    setFullViewportHud(false);
     setMotionScore(0);
     setStatusMessage('SENTRY IDLE // Transmitter stopped.');
   }, []);
@@ -446,7 +505,11 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-      {/* Left 8 Cols: Live Old Phone Camera Transmitter & Controls */}
+      {/* Hidden Canvases for Motion Sampling and High-Res Photo Shutter */}
+      <canvas ref={sampleCanvasRef} className="hidden" />
+      <canvas ref={photoCanvasRef} className="hidden" />
+
+      {/* Left 8 Cols: Live Old Phone Camera Transmitter & Mobile Camera Shutter HUD */}
       <div className="lg:col-span-8 space-y-5">
         <div className="nyc-panel concrete-surface p-5">
           <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b-2 border-[#2e3344]">
@@ -455,19 +518,20 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
                 <span className="mta-bullet bg-[#00d2ff] text-[#0a0a0d]">
                   B
                 </span>
-                <span>ALFREDCAM BURNER PHONE TRANSMITTER</span>
+                <span>ALFREDCAM BURNER PHONE PWA</span>
                 <span>·</span>
                 <span className="text-[#ffd600]">PAIR CODE #{pairingCode}</span>
               </div>
               <h2 className="font-graffiti text-2xl sm:text-3xl text-[#f4f1ea] mt-1.5">
-                Burner Phone Sentry Deck
+                Burner Phone Sentry &amp; Shutter Deck
               </h2>
               <p className="text-xs text-[#a0a6b8] mt-1">
-                Repurpose your spare phone into a sleepless street sensor. Broadcasts live to the Multi-Cam Matrix while cutting local motion reels and running 15s H.264 Gemini Watchman checks.
+                Don&apos;t Blink, Don&apos;t sleep. Full-viewport mobile camera with front/rear lens flip, instant canvas photo shutter, gallery thumbnail downloader, and 15s AI Watchman motion reels.
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <PWAInstallPrompt />
               {!running ? (
                 <button
                   type="button"
@@ -499,21 +563,30 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
             </div>
           )}
 
-          {/* Unobstructed Camera Preview Stage */}
-          <div className="relative mt-4 aspect-video w-full bg-black border-2 border-[#383e52] overflow-hidden">
+          {/* Camera Preview Stage (Supports Standard 16:9 or Full-Viewport Mobile Mode) */}
+          <div
+            className={
+              fullViewportHud
+                ? 'fixed inset-0 z-40 bg-black flex flex-col justify-between'
+                : 'relative mt-4 aspect-video w-full bg-black border-2 border-[#383e52] overflow-hidden'
+            }
+          >
             <video
               ref={videoRef}
               playsInline
               muted={muted}
               className={`h-full w-full object-cover transition-all duration-200 ${
                 running ? 'opacity-100' : 'opacity-20'
-              } ${
+              } ${cameraFacing === 'user' ? 'scale-x-[-1]' : ''} ${
                 nightMode
                   ? 'brightness-125 contrast-125 saturate-50 hue-rotate-[75deg]'
                   : ''
               }`}
             />
-            <canvas ref={sampleCanvasRef} className="hidden" />
+
+            {shutterFlash && (
+              <div className="absolute inset-0 bg-white/80 pointer-events-none transition-opacity" />
+            )}
 
             {!running && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
@@ -524,16 +597,20 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
                   Sentry Idle — Ready To Roll
                 </p>
                 <p className="text-xs text-[#a0a6b8] max-w-md mt-1">
-                  Hit &ldquo;Dispatch Sentry&rdquo; above to lock onto this device&apos;s camera and microphone.
+                  Hit &ldquo;Dispatch Sentry&rdquo; above to lock onto this device&apos;s camera and activate the Shutter &amp; Flip controls.
                 </p>
               </div>
             )}
 
             {/* Top HUD Overlay */}
-            <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
+            <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
               <div className="bg-[#0a0a0d]/90 border border-[#ffd600] px-2.5 py-1 text-xs font-mono font-bold tabular-nums text-[#f4f1ea]">
                 <span className={running ? 'text-[#ffd600]' : 'text-[#a0a6b8]'}>
                   {running ? '● ON AIR' : 'STANDBY'}
+                </span>
+                <span className="mx-1.5">·</span>
+                <span>
+                  LENS: {cameraFacing === 'environment' ? 'REAR' : 'FRONT'}
                 </span>
                 <span className="mx-1.5">·</span>
                 <span>JITTER {motionScore}%</span>
@@ -545,12 +622,90 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
                 )}
               </div>
 
-              {analyzingAi && (
-                <div className="bg-[#ffd600] text-[#0a0a0d] border-2 border-[#0a0a0d] px-3 py-1 text-xs font-stencil font-bold uppercase flex items-center gap-1.5">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Watchman AI Scanning...</span>
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                {analyzingAi && (
+                  <div className="bg-[#ffd600] text-[#0a0a0d] border-2 border-[#0a0a0d] px-3 py-1 text-xs font-stencil font-bold uppercase flex items-center gap-1.5">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Watchman AI...</span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setFullViewportHud((v) => !v)}
+                  className="nyc-btn nyc-btn-dark px-2.5 py-1.5 text-xs"
+                  title={
+                    fullViewportHud
+                      ? 'Exit full-viewport camera'
+                      : 'Expand full-viewport mobile camera'
+                  }
+                >
+                  {fullViewportHud ? (
+                    <>
+                      <Minimize2 className="w-3.5 h-3.5 text-[#ffd600]" />
+                      <span>Exit Fullscreen</span>
+                    </>
+                  ) : (
+                    <>
+                      <Maximize2 className="w-3.5 h-3.5 text-[#ffd600]" />
+                      <span>Full Viewport</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Bottom Mobile Camera Dock: Gallery Thumbnail Circle | Centered Shutter Button | Flip Camera Toggle */}
+            <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/95 via-black/70 to-transparent px-6 py-4 flex items-center justify-between z-10">
+              {/* Functional Gallery Thumbnail Circle (Downloads photo on click) */}
+              <button
+                type="button"
+                disabled={!lastPhotoDataUrl}
+                onClick={handleDownloadLastPhoto}
+                title={
+                  lastPhotoDataUrl
+                    ? 'Click to download last captured photo'
+                    : 'Snap a photo with the Shutter button first'
+                }
+                className={`w-14 h-14 rounded-full border-2 overflow-hidden flex items-center justify-center transition-transform active:scale-95 ${
+                  lastPhotoDataUrl
+                    ? 'border-[#ffd600] bg-[#13151c] cursor-pointer shadow-[0_0_0_2px_#0a0a0d]'
+                    : 'border-[#383e52] bg-[#0a0a0d]/80 opacity-60 cursor-not-allowed'
+                }`}
+              >
+                {lastPhotoDataUrl ? (
+                  <img
+                    src={lastPhotoDataUrl}
+                    alt="Last captured snapshot"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Download className="w-5 h-5 text-[#a0a6b8]" />
+                )}
+              </button>
+
+              {/* Large Centered Shutter Button */}
+              <button
+                type="button"
+                disabled={!running}
+                onClick={handleSnapPhoto}
+                aria-label="Shutter — Take Photo"
+                className="w-18 h-18 rounded-full border-4 border-[#ffd600] bg-[#f4f1ea]/15 p-1.5 flex items-center justify-center transition-transform active:scale-90 disabled:opacity-40 cursor-pointer"
+              >
+                <span className="w-full h-full rounded-full bg-[#f4f1ea] hover:bg-[#ffd600] transition-colors block border-2 border-[#0a0a0d]" />
+              </button>
+
+              {/* Flip Camera Toggle Button (Alternates user / environment safely) */}
+              <button
+                type="button"
+                onClick={flipCamera}
+                aria-label="Flip Camera"
+                className="w-14 h-14 rounded-full border-2 border-[#00d2ff] bg-[#13151c] text-[#f4f1ea] hover:bg-[#1c2230] flex flex-col items-center justify-center gap-0.5 transition-transform active:scale-95 cursor-pointer"
+              >
+                <RefreshCw className="w-5 h-5 text-[#00d2ff]" />
+                <span className="font-mono text-[9px] font-bold uppercase text-[#00d2ff]">
+                  {cameraFacing === 'environment' ? 'REAR' : 'FRONT'}
+                </span>
+              </button>
             </div>
           </div>
 
@@ -604,7 +759,8 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
               >
                 <RefreshCw className="w-4 h-4 text-[#00d2ff]" />
                 <span>
-                  Lens: {cameraFacing === 'environment' ? 'Rear' : 'Front'}
+                  Flip Lens ({cameraFacing === 'environment' ? 'Rear' : 'Front'}
+                  )
                 </span>
               </button>
 
