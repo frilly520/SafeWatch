@@ -27,8 +27,11 @@
 </head>
 <body>
   <main class="camera-app">
-    <!-- Live Full-Viewport Video Feed -->
+    <!-- Live Full-Viewport Video Feed (WebRTC Device Camera) -->
     <video id="camera-stream" autoplay playsinline muted></video>
+
+    <!-- Live Z-Ion IP Camera Blob Viewport (Used for fetch() -> ObjectURL loop) -->
+    <img id="ip-stream-view" alt="Z-Ion IP Camera Stream" crossorigin="anonymous" hidden />
 
     <!-- Hidden Canvas for High-Resolution Frame Capture -->
     <canvas id="capture-canvas" hidden></canvas>
@@ -38,15 +41,31 @@
 
     <!-- Top HUD Bar -->
     <header class="top-hud">
-      <div class="brand-lockup">
-        <span class="brand-name">safeWatch</span>
-        <span class="catchphrase">Don’t Blink, Don’t sleep</span>
+      <div class="top-hud-row">
+        <div class="brand-lockup">
+          <span class="brand-name">safeWatch</span>
+          <span class="catchphrase">Don’t Blink, Don’t sleep</span>
+        </div>
+
+        <!-- Smart In-App Install / Add to Shortcut Button (Hidden by default) -->
+        <button id="install-btn" class="install-btn" type="button" hidden>
+          + Add to Shortcut
+        </button>
       </div>
 
-      <!-- Smart In-App Install / Add to Shortcut Button (Hidden by default) -->
-      <button id="install-btn" class="install-btn" type="button" hidden>
-        + Add to Shortcut
-      </button>
+      <!-- Z-Ion Camera IP Input & Connect Bar -->
+      <div class="ip-connect-bar">
+        <input
+          id="camera-ip-input"
+          class="ip-input"
+          type="text"
+          placeholder="192.168.43.244"
+          aria-label="Z-Ion Camera IP Address"
+        />
+        <button id="connect-ip-btn" class="connect-btn" type="button">
+          Connect
+        </button>
+      </div>
     </header>
 
     <!-- Status Pill / Error Readout -->

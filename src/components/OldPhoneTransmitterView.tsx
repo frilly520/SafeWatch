@@ -54,6 +54,15 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
   const [fullViewportHud, setFullViewportHud] = useState(false);
   const [lastPhotoDataUrl, setLastPhotoDataUrl] = useState<string | null>(null);
   const [shutterFlash, setShutterFlash] = useState(false);
+  const [zionIp, setZionIp] = useState<string>(() => {
+    try {
+      return window.localStorage.getItem('safewatch_zion_camera_ip') || '192.168.43.244';
+    } catch {
+      return '192.168.43.244';
+    }
+  });
+  const [zionStreaming, setZionStreaming] = useState(false);
+  const [zionBlobUrl, setZionBlobUrl] = useState<string | null>(null);
   const [sensitivity, setSensitivity] = useState(62);
   const [motionEnabled, setMotionEnabled] = useState(true);
   const [autoAiWatchman, setAutoAiWatchman] = useState(true);
@@ -65,19 +74,128 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
   const [analyzingAi, setAnalyzingAi] = useState(false);
   const [motionScore, setMotionScore] = useState(0);
   const [statusMessage, setStatusMessage] = useState(
-    'STANDBY // Hit Dispatch Sentry to start streaming, snapping photos & motion watch.'
+    'STANDBY // Hit Dispatch Sentry or Connect Z-Ion IP (192.168.43.244) to start streaming.'
   );
   const [error, setError] = useState('');
   const [localClips, setLocalClips] = useState<LocalClip[]>([]);
   const [playingClipId, setPlayingClipId] = useState<number | null>(null);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const zionImgRef = useRef<HTMLImageElement | null>(null);
   const sampleCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const photoCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const lastPixelsRef = useRef<Uint8ClampedArray | null>(null);
   const recordingRef = useRef(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const zionActiveRef = useRef(false);
+  const zionAbortRef = useRef<AbortController | null>(null);
+  const activeObjectUrlRef = useRef<string | null>(null);
+
+  // Auto-save Z-Ion IP to localStorage whenever updated
+  useEffect(() => {
+    try {
+      if (zionIp.trim()) {
+        window.localStorage.setItem('safewatch_zion_camera_ip', zionIp.trim());
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [zionIp]);
+
+  const stopZionStream = useCallback(() => {
+    zionActiveRef.current = false;
+    setZionStreaming(false);
+    if (zionAbortRef.current) {
+      zionAbortRef.current.abort();
+      zionAbortRef.current = null;
+    }
+    if (activeObjectUrlRef.current) {
+      URL.revokeObjectURL(activeObjectUrlRef.current);
+      activeObjectUrlRef.current = null;
+    }
+    setZionBlobUrl(null);
+  }, []);
+
+  const connectZionStream = useCallback(async () => {
+    const cleanIp = zionIp.trim() || '192.168.43.244';
+    try {
+      window.localStorage.setItem('safewatch_zion_camera_ip', cleanIp);
+    } catch {
+      // ignore
+    }
+
+    // Stop local webcam if active
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setRunning(false);
+    stopZionStream();
+
+    zionActiveRef.current = true;
+    setZionStreaming(true);
+    setError('');
+    setStatusMessage(`CONNECTING TO Z-ION IP // ${cleanIp} (Binary ObjectURL Loop)...`);
+
+    const hostPort = cleanIp.replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    const endpoints = /^https?:\/\/.+\/.+/i.test(cleanIp)
+      ? [cleanIp]
+      : [
+          `http://${hostPort}/shot.jpg`,
+          `http://${hostPort}:8080/shot.jpg`,
+          `http://${hostPort}/capture`,
+          `http://${hostPort}/stream`,
+          `http://${hostPort}:81/stream`,
+        ];
+
+    let idx = 0;
+    while (zionActiveRef.current) {
+      const target = endpoints[idx % endpoints.length];
+      const controller = new AbortController();
+      zionAbortRef.current = controller;
+
+      try {
+        const sep = target.includes('?') ? '&' : '?';
+        const res = await fetch(`${target}${sep}_t=${Date.now()}`, {
+          method: 'GET',
+          cache: 'no-store',
+          mode: 'cors',
+          signal: controller.signal,
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+        const blob = await res.blob();
+        if (blob && blob.size > 0 && zionActiveRef.current) {
+          const nextUrl = URL.createObjectURL(blob);
+          const prevUrl = activeObjectUrlRef.current;
+          activeObjectUrlRef.current = nextUrl;
+          setZionBlobUrl(nextUrl);
+          if (prevUrl) {
+            URL.revokeObjectURL(prevUrl);
+          }
+          setStatusMessage(`LIVE // Z-ION BINARY STREAM (${cleanIp}) ACTIVE.`);
+        }
+        await new Promise((r) => setTimeout(r, 45));
+      } catch {
+        if (!zionActiveRef.current) break;
+        idx += 1;
+        setStatusMessage(
+          `PROBING Z-ION (${cleanIp}) // Waiting for binary frame chunk...`
+        );
+        await new Promise((r) => setTimeout(r, 900));
+      }
+    }
+  }, [stopZionStream, zionIp]);
+
+  useEffect(() => {
+    return () => {
+      stopZionStream();
+    };
+  }, [stopZionStream]);
 
   const clipUrls = useMemo(
     () =>
@@ -162,26 +280,34 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
 
   // Snap high-resolution photo onto hidden HTML5 canvas & update gallery thumbnail circle
   const handleSnapPhoto = useCallback(() => {
-    const video = videoRef.current;
     const canvas = photoCanvasRef.current;
-    if (!video || !canvas || !running) return;
-
-    const width = video.videoWidth || 1280;
-    const height = video.videoHeight || 720;
-    canvas.width = width;
-    canvas.height = height;
-
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    if (cameraFacing === 'user') {
-      ctx.save();
-      ctx.translate(width, 0);
-      ctx.scale(-1, 1);
-      ctx.drawImage(video, 0, 0, width, height);
-      ctx.restore();
+    if (zionStreaming && zionImgRef.current && zionImgRef.current.naturalWidth > 0) {
+      const img = zionImgRef.current;
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    } else if (running && videoRef.current) {
+      const video = videoRef.current;
+      const width = video.videoWidth || 1280;
+      const height = video.videoHeight || 720;
+      canvas.width = width;
+      canvas.height = height;
+
+      if (cameraFacing === 'user') {
+        ctx.save();
+        ctx.translate(width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, width, height);
+        ctx.restore();
+      } else {
+        ctx.drawImage(video, 0, 0, width, height);
+      }
     } else {
-      ctx.drawImage(video, 0, 0, width, height);
+      return;
     }
 
     const dataUrl = canvas.toDataURL('image/png');
@@ -191,7 +317,7 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
     setStatusMessage(
       'SNAPSHOT CAPTURED // Tap the gallery thumbnail circle to download PNG.'
     );
-  }, [cameraFacing, running]);
+  }, [cameraFacing, running, zionStreaming]);
 
   const handleDownloadLastPhoto = useCallback(() => {
     if (!lastPhotoDataUrl) return;
@@ -536,7 +662,10 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
                 <button
                   type="button"
                   disabled={starting}
-                  onClick={() => void startPhoneCamera()}
+                  onClick={() => {
+                    stopZionStream();
+                    void startPhoneCamera();
+                  }}
                   className="nyc-btn nyc-btn-yellow px-5 py-3 min-h-[44px] text-xs whitespace-nowrap shrink-0"
                 >
                   <Camera className="w-4 h-4" />
@@ -557,6 +686,46 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
             </div>
           </div>
 
+          {/* Dedicated Z-Ion Camera IP Input + Connect Bar (Auto-saved in localStorage) */}
+          <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#0a0a0d] border-2 border-[#2e3344] p-3">
+            <div className="text-xs">
+              <span className="font-stencil font-bold uppercase text-[#ffd600]">
+                Z-Ion / External IP Stream (HTTPS Mixed-Content Bypass)
+              </span>
+              <p className="text-[11px] text-[#a0a6b8] font-mono">
+                Fetches binary chunks into Blob ObjectURLs &amp; revokes prior frames automatically.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                id="camera-ip-input"
+                type="text"
+                value={zionIp}
+                onChange={(e) => setZionIp(e.target.value)}
+                placeholder="192.168.43.244"
+                className="nyc-input font-mono text-xs w-44 sm:w-52"
+              />
+              {!zionStreaming ? (
+                <button
+                  id="connect-ip-btn"
+                  type="button"
+                  onClick={() => void connectZionStream()}
+                  className="nyc-btn nyc-btn-blue px-4 py-2 min-h-[38px] text-xs whitespace-nowrap shrink-0"
+                >
+                  Connect
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={stopZionStream}
+                  className="nyc-btn nyc-btn-red px-4 py-2 min-h-[38px] text-xs whitespace-nowrap shrink-0"
+                >
+                  Disconnect IP
+                </button>
+              )}
+            </div>
+          </div>
+
           {error && (
             <div className="mt-4 nyc-panel-red px-4 py-3 text-xs text-white font-mono">
               ERROR // {error}
@@ -571,24 +740,38 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
                 : 'relative mt-4 aspect-video w-full bg-black border-2 border-[#383e52] overflow-hidden'
             }
           >
-            <video
-              ref={videoRef}
-              playsInline
-              muted={muted}
-              className={`h-full w-full object-cover transition-all duration-200 ${
-                running ? 'opacity-100' : 'opacity-20'
-              } ${cameraFacing === 'user' ? 'scale-x-[-1]' : ''} ${
-                nightMode
-                  ? 'brightness-125 contrast-125 saturate-50 hue-rotate-[75deg]'
-                  : ''
-              }`}
-            />
+            {zionStreaming && zionBlobUrl ? (
+              <img
+                ref={zionImgRef}
+                src={zionBlobUrl}
+                alt="Z-Ion Camera Stream"
+                crossOrigin="anonymous"
+                className={`h-full w-full object-cover transition-all duration-150 ${
+                  nightMode
+                    ? 'brightness-125 contrast-125 saturate-50 hue-rotate-[75deg]'
+                    : ''
+                }`}
+              />
+            ) : (
+              <video
+                ref={videoRef}
+                playsInline
+                muted={muted}
+                className={`h-full w-full object-cover transition-all duration-200 ${
+                  running ? 'opacity-100' : 'opacity-20'
+                } ${cameraFacing === 'user' ? 'scale-x-[-1]' : ''} ${
+                  nightMode
+                    ? 'brightness-125 contrast-125 saturate-50 hue-rotate-[75deg]'
+                    : ''
+                }`}
+              />
+            )}
 
             {shutterFlash && (
               <div className="absolute inset-0 bg-white/80 pointer-events-none transition-opacity" />
             )}
 
-            {!running && (
+            {!running && !zionStreaming && (
               <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
                 <div className="w-16 h-16 border-2 border-[#ffd600] bg-[#13151c] flex items-center justify-center mb-3 shadow-[4px_4px_0px_#000]">
                   <Camera className="w-8 h-8 text-[#ffd600]" />
@@ -597,7 +780,7 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
                   Sentry Idle — Ready To Roll
                 </p>
                 <p className="text-xs text-[#a0a6b8] max-w-md mt-1">
-                  Hit &ldquo;Dispatch Sentry&rdquo; above to lock onto this device&apos;s camera and activate the Shutter &amp; Flip controls.
+                  Hit &ldquo;Dispatch Sentry&rdquo; above or click &ldquo;Connect&rdquo; next to your Z-Ion IP ({zionIp}) to activate the Shutter &amp; Flip controls.
                 </p>
               </div>
             )}
@@ -605,12 +788,12 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
             {/* Top HUD Overlay */}
             <div className="absolute top-3 left-3 right-3 flex items-center justify-between z-10">
               <div className="bg-[#0a0a0d]/90 border border-[#ffd600] px-2.5 py-1 text-xs font-mono font-bold tabular-nums text-[#f4f1ea]">
-                <span className={running ? 'text-[#ffd600]' : 'text-[#a0a6b8]'}>
-                  {running ? '● ON AIR' : 'STANDBY'}
+                <span className={running || zionStreaming ? 'text-[#ffd600]' : 'text-[#a0a6b8]'}>
+                  {zionStreaming ? `● Z-ION (${zionIp})` : running ? '● ON AIR' : 'STANDBY'}
                 </span>
                 <span className="mx-1.5">·</span>
                 <span>
-                  LENS: {cameraFacing === 'environment' ? 'REAR' : 'FRONT'}
+                  LENS: {zionStreaming ? 'IP BLOB' : cameraFacing === 'environment' ? 'REAR' : 'FRONT'}
                 </span>
                 <span className="mx-1.5">·</span>
                 <span>JITTER {motionScore}%</span>
@@ -686,7 +869,7 @@ export const OldPhoneTransmitterView: React.FC<OldPhoneTransmitterViewProps> = (
               {/* Large Centered Shutter Button */}
               <button
                 type="button"
-                disabled={!running}
+                disabled={!running && !zionStreaming}
                 onClick={handleSnapPhoto}
                 aria-label="Shutter — Take Photo"
                 className="w-18 h-18 rounded-full border-4 border-[#ffd600] bg-[#f4f1ea]/15 p-1.5 flex items-center justify-center transition-transform active:scale-90 disabled:opacity-40 cursor-pointer"

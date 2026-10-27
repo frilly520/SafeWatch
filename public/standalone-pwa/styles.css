@@ -37,8 +37,9 @@ html, body {
   justify-content: space-between;
 }
 
-/* Live Video Feed */
-#camera-stream {
+/* Live Video & Z-Ion Blob Image Feeds */
+#camera-stream,
+#ip-stream-view {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -72,11 +73,17 @@ html, body {
   position: relative;
   z-index: 10;
   display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: calc(env(safe-area-inset-top, 12px) + 12px) 16px 14px;
+  background: linear-gradient(to bottom, rgba(10, 10, 13, 0.92), rgba(10, 10, 13, 0));
+}
+
+.top-hud-row {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: calc(env(safe-area-inset-top, 12px) + 12px) 16px 14px;
-  background: linear-gradient(to bottom, rgba(10, 10, 13, 0.9), rgba(10, 10, 13, 0));
 }
 
 .brand-lockup {
@@ -99,6 +106,51 @@ html, body {
   letter-spacing: 0.08em;
   color: var(--text-light);
   margin-top: 3px;
+}
+
+/* Z-Ion Camera IP Input & Connect Bar */
+.ip-connect-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 440px;
+}
+
+.ip-input {
+  flex: 1;
+  min-width: 0;
+  background: rgba(19, 21, 28, 0.92);
+  border: 2px solid var(--border-heavy);
+  color: var(--text-light);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  padding: 8px 11px;
+  outline: none;
+}
+
+.ip-input:focus {
+  border-color: var(--spray-yellow);
+}
+
+.connect-btn {
+  background-color: var(--spray-yellow);
+  color: #0a0a0d;
+  border: 2px solid #0a0a0d;
+  padding: 8px 14px;
+  font-family: 'Chakra Petch', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  box-shadow: 3px 3px 0 #000;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.connect-btn:active {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 #000;
 }
 
 /* Smart In-App Install Shortcut Button */
